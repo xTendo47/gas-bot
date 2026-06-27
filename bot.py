@@ -167,9 +167,5 @@ app.add_handler(CommandHandler("k", set_k))
 app.add_handler(CommandHandler("t", set_t))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-if RENDER_URL:
-    print(f"Запуск на Render: {RENDER_URL}")
-    app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
-else:
-    print("Бот запущен локально!")
-    app.run_polling()
+print("Бот запущен!")
+app.run_polling()
