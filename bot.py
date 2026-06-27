@@ -48,10 +48,10 @@ def reset_decks():
 
 
 def is_x2():
-    return random.randint(1, 6) == 6
+    return random.randint(1, 100) <= 9
 
 
-def pull_card(deck_name):
+def pull_card(deck_name, is_arrow=False):
     global decks, stats, turn, current_player
 
     if deck_name not in decks or not decks[deck_name]:
@@ -61,10 +61,13 @@ def pull_card(deck_name):
     card = random.choice(decks[deck_name])
     decks[deck_name].remove(card)
     stats[deck_name] += 1
-    turn += 1
 
-    player = current_player
-    current_player = "Тимур" if current_player == "Катя" else "Катя"
+    if not is_arrow:
+        turn += 1
+        player = current_player
+        current_player = "Тимур" if current_player == "Катя" else "Катя"
+    else:
+        player = current_player
 
     response = f"🎲 {deck_name.upper()} — ход {turn}\n"
     response += f"👤 Тянет: {player}\n\n"
@@ -76,7 +79,7 @@ def pull_card(deck_name):
         if target == "рандом":
             target = random.choice(["газ", "полный_газ", "пиздец_газ", "делай"])
             response += f"\n🎯 Выпало: «{target.upper()}»"
-        response += "\n\n" + pull_card(target)
+        response += "\n\n" + pull_card(target, is_arrow=True)
 
     if is_x2() and card["type"] != "arrow":
         response += "\n\n🔥 Х2! Карта для обоих!"
@@ -167,5 +170,9 @@ app.add_handler(CommandHandler("k", set_k))
 app.add_handler(CommandHandler("t", set_t))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-print("Бот запущен!")
-app.run_polling()
+if RENDER_URL:
+    print(f"Запуск на Render: {RENDER_URL}")
+    app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
+else:
+    print("Бот запущен локально!")
+    app.run_polling()
