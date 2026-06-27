@@ -1,13 +1,11 @@
 import json
 import random
 import os
-from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = "8539185338:AAFfeRhe-uGYE_znA5f1QPTSVsTOUtmOY90"
 PORT = int(os.environ.get("PORT", 10000))
-RENDER_URL = "https://gas-bot-4cyt.onrender.com"
 
 decks = {}
 stats = {"газ": 0, "полный_газ": 0, "пиздец_газ": 0, "делай": 0}
@@ -21,8 +19,6 @@ main_keyboard = ReplyKeyboardMarkup([
     ["РАНДОМ", "СТАТИСТИКА"],
     ["ФИНИШ"]
 ], resize_keyboard=True)
-
-app = Flask(__name__)
 
 
 def load_decks():
@@ -57,7 +53,7 @@ def pull_card(deck_name, is_arrow=False):
 
     if deck_name not in decks or not decks[deck_name]:
         reset_decks()
-        return "Колода пуста и сброшена. Тяни снова."
+        return "🃏 Колода была пуста и сброшена. Тяни снова."
 
     card = random.choice(decks[deck_name])
     decks[deck_name].remove(card)
@@ -70,7 +66,9 @@ def pull_card(deck_name, is_arrow=False):
     else:
         player = current_player
 
-    response = f"🎲 {deck_name.upper()} — ход {turn}\n👤 Тянет: {player}\n\n{card['text']}"
+    response = f"🎲 {deck_name.upper()} — ход {turn}\n"
+    response += f"👤 Тянет: {player}\n\n"
+    response += f"{card['text']}"
 
     if card["type"] == "arrow":
         target = card["target"]
@@ -86,10 +84,12 @@ def pull_card(deck_name, is_arrow=False):
     return response
 
 
-# Telegram handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reset_decks()
-    await update.message.reply_text("🔥 ИГРА «ГАЗ» НАЧИНАЕТСЯ!\n\nПервый ход — Катя.", reply_markup=main_keyboard)
+    await update.message.reply_text(
+        "🔥 ИГРА «ГАЗ» НАЧИНАЕТСЯ!\n\nПервый ход — Катя.\nВыбирай колоду:",
+        reply_markup=main_keyboard
+    )
 
 
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,14 +101,17 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = sum(stats.values())
     text = "📊 СТАТИСТИКА\n\n"
     for deck, count in stats.items():
-        text += f"{deck.upper()}: {count}\n"
-    text += f"\nВсего: {total}\nСледующий: {current_player}"
+        text += f"{deck.upper()}: {count} карт\n"
+    text += f"\nВсего: {total} карт\nСледующий ход: {current_player}"
     await update.message.reply_text(text)
 
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = sum(stats.values())
-    text = f"🏁 ИГРА ЗАВЕРШЕНА!\n\nГаз: {stats['газ']}\nПолный газ: {stats['полный_газ']}\nПиздец газ: {stats['пиздец_газ']}\nДелай: {stats['делай']}\n\nВсего: {total}\n\nСпасибо за игру! 🔥"
+    text = "🏁 ИГРА ЗАВЕРШЕНА!\n\n"
+    text += f"Газ: {stats['газ']}\nПолный газ: {stats['полный_газ']}\n"
+    text += f"Пиздец газ: {stats['пиздец_газ']}\nДелай: {stats['делай']}\n"
+    text += f"\nВсего карт: {total}\n\nСпасибо за игру! 🔥"
     await update.message.reply_text(text)
     reset_decks()
 
@@ -116,13 +119,13 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def set_k(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global current_player
     current_player = "Катя"
-    await update.message.reply_text("👤 Ход — Катя")
+    await update.message.reply_text("👤 Следующий ход — Катя")
 
 
 async def set_t(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global current_player
     current_player = "Тимур"
-    await update.message.reply_text("👤 Ход — Тимур")
+    await update.message.reply_text("👤 Следующий ход — Тимур")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -133,48 +136,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = pull_card(deck_map[text])
     elif text == "РАНДОМ":
         deck = random.choice(["газ", "полный_газ", "пиздец_газ", "делай"])
-        response = f"🎯 Рандом: «{deck.upper()}»\n\n" + pull_card(deck)
-    elif text in ["СТАТИСТИКА", "ФИНИШ"]:
+        response = f"🎯 Рандом выбрал: «{deck.upper()}»\n\n" + pull_card(deck)
+    elif text == "СТАТИСТИКА":
+        await stats_cmd(update, context)
+        return
+    elif text == "ФИНИШ":
+        await finish(update, context)
         return
     else:
-        response = "Используй кнопки."
+        response = "Используй кнопки или команды."
 
     await update.message.reply_text(response)
 
 
-# Flask route
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), telegram_app.bot)
-    telegram_app.update_queue.put_nowait(update)
-    return "OK", 200
+# ---------- ЗАПУСК ----------
+load_decks()
+app = Application.builder().token(TOKEN).build()
 
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("restart", restart))
+app.add_handler(CommandHandler("stats", stats_cmd))
+app.add_handler(CommandHandler("finish", finish))
+app.add_handler(CommandHandler("k", set_k))
+app.add_handler(CommandHandler("t", set_t))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-@app.route("/")
-def home():
-    return "Bot is live!", 200
-
-
-if __name__ == "__main__":
-    load_decks()
-    telegram_app = Application.builder().token(TOKEN).build()
-    telegram_app.add_handler(CommandHandler("start", start))
-    telegram_app.add_handler(CommandHandler("restart", restart))
-    telegram_app.add_handler(CommandHandler("stats", stats_cmd))
-    telegram_app.add_handler(CommandHandler("finish", finish))
-    telegram_app.add_handler(CommandHandler("k", set_k))
-    telegram_app.add_handler(CommandHandler("t", set_t))
-    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    async def init():
-        await telegram_app.initialize()
-        await telegram_app.start()
-
-    import asyncio
-    asyncio.run(init())
-
-    # Set webhook
-    import requests
-    requests.get(f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={RENDER_URL}/webhook")
-
-    app.run(host="0.0.0.0", port=PORT)
+print("Бот запущен на Render!")
+app.run_polling(drop_pending_updates=True)
