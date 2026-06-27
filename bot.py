@@ -4,12 +4,9 @@ import os
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# ---------- НАСТРОЙКИ ----------
 TOKEN = "8539185338:AAFfeRhe-uGYE_znA5f1QPTSVsTOUtmOY90"
-PORT = int(os.environ.get("PORT", 8443))
-RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "")
+PORT = int(os.environ.get("PORT", 10000))
 
-# Данные игры
 decks = {}
 stats = {"газ": 0, "полный_газ": 0, "пиздец_газ": 0, "делай": 0}
 original_decks = {}
@@ -170,9 +167,5 @@ app.add_handler(CommandHandler("k", set_k))
 app.add_handler(CommandHandler("t", set_t))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-if RENDER_URL:
-    print(f"Запуск на Render: {RENDER_URL}")
-    app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
-else:
-    print("Бот запущен локально!")
-    app.run_polling()
+print("Бот запущен на Render!")
+app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url="https://gas-bot-4cyt.onrender.com/webhook")
