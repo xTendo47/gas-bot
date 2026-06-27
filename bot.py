@@ -1,11 +1,12 @@
 import json
 import random
 import os
+import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # ---------- НАСТРОЙКИ ----------
-TOKEN = "ТВОЙ_ТОКЕН_СЮДА"  # <-- ВСТАВЬ ТОКЕН
+TOKEN = "8539185338:AAFfeRhe-uGYE_znA5f1QPTSVsTOUtmOY90"
 PORT = int(os.environ.get("PORT", 8443))
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "")
 
@@ -16,7 +17,6 @@ original_decks = {}
 current_player = "Катя"
 turn = 0
 
-# Кнопки
 main_keyboard = ReplyKeyboardMarkup([
     ["ГАЗ", "ПОЛНЫЙ ГАЗ"],
     ["ПИЗДЕЦ ГАЗ", "ДЕЛАЙ"],
@@ -156,7 +156,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 
-def main():
+async def main():
     load_decks()
     app = Application.builder().token(TOKEN).build()
 
@@ -170,11 +170,11 @@ def main():
 
     if RENDER_URL:
         print(f"Запуск на Render: {RENDER_URL}")
-        app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
+        await app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
     else:
         print("Бот запущен локально!")
-        app.run_polling()
+        await app.run_polling()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
