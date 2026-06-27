@@ -1,17 +1,19 @@
 import json
 import random
 import os
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # ---------- НАСТРОЙКИ ----------
 TOKEN = "8539185338:AAFfeRhe-uGYE_znA5f1QPTSVsTOUtmOY90"  # 
+PORT = int(os.environ.get("PORT", 8443))
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "")
 
 # Хранилище колод и статистики
 decks = {}
 stats = {"газ": 0, "полный_газ": 0, "пиздец_газ": 0, "делай": 0}
 original_decks = {}
-current_player = "Катя"  # Катя ходит первой
+current_player = "Катя"
 turn = 0
 
 # ---------- КНОПКИ ----------
@@ -50,7 +52,7 @@ def reset_decks():
 
 # ---------- X2 МЕХАНИКА ----------
 def is_x2():
-    return random.randint(1, 6) == 6  # ~17% шанс
+    return random.randint(1, 6) == 6
 
 
 # ---------- ВЫБОР КАРТЫ ----------
@@ -58,7 +60,8 @@ def pull_card(deck_name):
     global decks, stats, turn, current_player
 
     if deck_name not in decks or not decks[deck_name]:
-        return "🃏 Колода пуста! Используй /restart для сброса."
+        reset_decks()
+        return "🃏 Колода была пуста и сброшена. Тяни снова."
 
     card = random.choice(decks[deck_name])
     decks[deck_name].remove(card)
@@ -66,15 +69,12 @@ def pull_card(deck_name):
 
     turn += 1
     player = current_player
-    # Меняем игрока для следующего хода
     current_player = "Тимур" if current_player == "Катя" else "Катя"
 
-    # Формируем ответ
     response = f"🎲 {deck_name.upper()} — ход {turn}\n"
     response += f"👤 Тянет: {player}\n\n"
     response += f"{card['text']}"
 
-    # Обработка стрелок
     if card["type"] == "arrow":
         target = card["target"]
         response += f"\n\n➡️ Переход в «{target.upper()}»"
@@ -83,20 +83,19 @@ def pull_card(deck_name):
             response += f"\n🎯 Выпало: «{target.upper()}»"
         response += "\n\n" + pull_card(target)
 
-    # X2
     if is_x2() and card["type"] != "arrow":
         response += "\n\n🔥 Х2! Карта для обоих!"
         if card["type"] == "question":
-            response += f"\nОтвечают оба по очереди."
+            response += "\nОтвечают оба по очереди."
         elif card["type"] == "action":
-            response += f"\nВыполняют оба одновременно."
+            response += "\nВыполняют оба одновременно."
         elif card["type"] == "brudershaft":
-            response += f"\nПьют оба и целуются."
+            response += "\nПьют оба и целуются."
 
     return response
 
 
-# ---------- ОБРАБОТЧИКИ КОМАНД ----------
+# ---------- КОМАНДЫ ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reset_decks()
     await update.message.reply_text(
@@ -159,7 +158,6 @@ async def set_t(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👤 Следующий ход — Тимур")
 
 
-# ---------- ОБРАБОТЧИК ТЕКСТА (КНОПКИ) ----------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.upper().strip()
 
@@ -200,8 +198,16 @@ def main():
     app.add_handler(CommandHandler("t", set_t))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Бот запущен! Нажми Ctrl+C для остановки.")
-    app.run_polling()
+    if RENDER_URL:
+        print(f"Запуск на Render: {RENDER_URL}")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=f"{RENDER_URL}/webhook"
+        )
+    else:
+        print("Бот запущен локально!")
+        app.run_polling()
 
 
 if __name__ == "__main__":
