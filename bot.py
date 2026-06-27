@@ -5,18 +5,18 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # ---------- НАСТРОЙКИ ----------
-TOKEN = "8539185338:AAFfeRhe-uGYE_znA5f1QPTSVsTOUtmOY90"  # 
+TOKEN = "ТВОЙ_ТОКЕН_СЮДА"  # <-- ВСТАВЬ ТОКЕН
 PORT = int(os.environ.get("PORT", 8443))
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "")
 
-# Хранилище колод и статистики
+# Данные игры
 decks = {}
 stats = {"газ": 0, "полный_газ": 0, "пиздец_газ": 0, "делай": 0}
 original_decks = {}
 current_player = "Катя"
 turn = 0
 
-# ---------- КНОПКИ ----------
+# Кнопки
 main_keyboard = ReplyKeyboardMarkup([
     ["ГАЗ", "ПОЛНЫЙ ГАЗ"],
     ["ПИЗДЕЦ ГАЗ", "ДЕЛАЙ"],
@@ -25,7 +25,6 @@ main_keyboard = ReplyKeyboardMarkup([
 ], resize_keyboard=True)
 
 
-# ---------- ЗАГРУЗКА КАРТ ----------
 def load_decks():
     global decks, original_decks
     files = {
@@ -41,7 +40,6 @@ def load_decks():
             original_decks[deck_name] = data["cards"][:]
 
 
-# ---------- СБРОС КОЛОД ----------
 def reset_decks():
     global decks, stats, turn, current_player
     decks = {name: cards[:] for name, cards in original_decks.items()}
@@ -50,12 +48,10 @@ def reset_decks():
     current_player = "Катя"
 
 
-# ---------- X2 МЕХАНИКА ----------
 def is_x2():
     return random.randint(1, 6) == 6
 
 
-# ---------- ВЫБОР КАРТЫ ----------
 def pull_card(deck_name):
     global decks, stats, turn, current_player
 
@@ -66,8 +62,8 @@ def pull_card(deck_name):
     card = random.choice(decks[deck_name])
     decks[deck_name].remove(card)
     stats[deck_name] += 1
-
     turn += 1
+
     player = current_player
     current_player = "Тимур" if current_player == "Катя" else "Катя"
 
@@ -85,63 +81,38 @@ def pull_card(deck_name):
 
     if is_x2() and card["type"] != "arrow":
         response += "\n\n🔥 Х2! Карта для обоих!"
-        if card["type"] == "question":
-            response += "\nОтвечают оба по очереди."
-        elif card["type"] == "action":
-            response += "\nВыполняют оба одновременно."
-        elif card["type"] == "brudershaft":
-            response += "\nПьют оба и целуются."
 
     return response
 
 
-# ---------- КОМАНДЫ ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reset_decks()
     await update.message.reply_text(
-        "🔥 ИГРА «ГАЗ» НАЧИНАЕТСЯ!\n\n"
-        "Первый ход — Катя.\n"
-        "Выбирай колоду на кнопках:\n\n"
-        "Команды:\n"
-        "/start — перезапуск\n"
-        "/restart — сброс колод\n"
-        "/stats — статистика\n"
-        "/finish — завершить игру\n"
-        "/k — ход Кати\n"
-        "/t — ход Тимура",
+        "🔥 ИГРА «ГАЗ» НАЧИНАЕТСЯ!\n\nПервый ход — Катя.\nВыбирай колоду:",
         reply_markup=main_keyboard
     )
 
 
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reset_decks()
-    await update.message.reply_text(
-        "🔄 Колоды сброшены! Игра началась заново.\nПервый ход — Катя.",
-        reply_markup=main_keyboard
-    )
+    await update.message.reply_text("🔄 Колоды сброшены! Первый ход — Катя.", reply_markup=main_keyboard)
 
 
 async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = sum(stats.values())
     text = "📊 СТАТИСТИКА\n\n"
     for deck, count in stats.items():
-        bar = "█" * count if count > 0 else "—"
-        text += f"{deck.upper()}: {count} карт\n{bar}\n\n"
-    text += f"Всего вытянуто: {total} карт\n"
-    text += f"Следующий ход: {current_player}"
+        text += f"{deck.upper()}: {count} карт\n"
+    text += f"\nВсего: {total} карт\nСледующий ход: {current_player}"
     await update.message.reply_text(text)
 
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = sum(stats.values())
     text = "🏁 ИГРА ЗАВЕРШЕНА!\n\n"
-    text += f"Всего вытянуто карт: {total}\n"
-    text += f"Газ: {stats['газ']}\n"
-    text += f"Полный газ: {stats['полный_газ']}\n"
-    text += f"Пиздец газ: {stats['пиздец_газ']}\n"
-    text += f"Делай: {stats['делай']}\n\n"
-    text += "Спасибо за игру! 🔥\n"
-    text += "Для новой игры нажми /start"
+    text += f"Газ: {stats['газ']}\nПолный газ: {stats['полный_газ']}\n"
+    text += f"Пиздец газ: {stats['пиздец_газ']}\nДелай: {stats['делай']}\n"
+    text += f"\nВсего карт: {total}\n\nСпасибо за игру! 🔥"
     await update.message.reply_text(text)
     reset_decks()
 
@@ -161,18 +132,18 @@ async def set_t(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.upper().strip()
 
-    if text == "ГАЗ":
-        response = pull_card("газ")
-    elif text == "ПОЛНЫЙ ГАЗ":
-        response = pull_card("полный_газ")
-    elif text == "ПИЗДЕЦ ГАЗ":
-        response = pull_card("пиздец_газ")
-    elif text == "ДЕЛАЙ":
-        response = pull_card("делай")
+    deck_map = {
+        "ГАЗ": "газ",
+        "ПОЛНЫЙ ГАЗ": "полный_газ",
+        "ПИЗДЕЦ ГАЗ": "пиздец_газ",
+        "ДЕЛАЙ": "делай"
+    }
+
+    if text in deck_map:
+        response = pull_card(deck_map[text])
     elif text == "РАНДОМ":
         deck = random.choice(["газ", "полный_газ", "пиздец_газ", "делай"])
-        response = f"🎯 Рандом выбрал: «{deck.upper()}»\n\n"
-        response += pull_card(deck)
+        response = f"🎯 Рандом выбрал: «{deck.upper()}»\n\n" + pull_card(deck)
     elif text == "СТАТИСТИКА":
         await stats_cmd(update, context)
         return
@@ -180,12 +151,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await finish(update, context)
         return
     else:
-        response = "Используй кнопки или команды: /start, /restart, /stats, /finish, /k, /t"
+        response = "Используй кнопки или команды."
 
     await update.message.reply_text(response)
 
 
-# ---------- ЗАПУСК ----------
 def main():
     load_decks()
     app = Application.builder().token(TOKEN).build()
@@ -200,11 +170,7 @@ def main():
 
     if RENDER_URL:
         print(f"Запуск на Render: {RENDER_URL}")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            webhook_url=f"{RENDER_URL}/webhook"
-        )
+        app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
     else:
         print("Бот запущен локально!")
         app.run_polling()
