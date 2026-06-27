@@ -1,7 +1,6 @@
 import json
 import random
 import os
-import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -156,25 +155,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 
-async def main():
-    load_decks()
-    app = Application.builder().token(TOKEN).build()
+# ---------- ЗАПУСК ----------
+load_decks()
+app = Application.builder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("restart", restart))
-    app.add_handler(CommandHandler("stats", stats_cmd))
-    app.add_handler(CommandHandler("finish", finish))
-    app.add_handler(CommandHandler("k", set_k))
-    app.add_handler(CommandHandler("t", set_t))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("restart", restart))
+app.add_handler(CommandHandler("stats", stats_cmd))
+app.add_handler(CommandHandler("finish", finish))
+app.add_handler(CommandHandler("k", set_k))
+app.add_handler(CommandHandler("t", set_t))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    if RENDER_URL:
-        print(f"Запуск на Render: {RENDER_URL}")
-        await app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
-    else:
-        print("Бот запущен локально!")
-        await app.run_polling()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+if RENDER_URL:
+    print(f"Запуск на Render: {RENDER_URL}")
+    app.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{RENDER_URL}/webhook")
+else:
+    print("Бот запущен локально!")
+    app.run_polling()
